@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de CTPS e Metas</title>
+    <!-- Tailwind CSS para estilização rápida e responsiva -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2canvas para a funcionalidade de exportar como imagem -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* Estilos customizados para aprimorar a aparência e a responsividade */
+        /* Para navegadores WebKit (Chrome, Safari, etc.) */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #475569;
+            border-radius: 10px;
+            border: 2px solid #1e293b;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #64748b;
+        }
+
+        /* Estilos para Firefox */
+        html {
+            scrollbar-width: thin;
+            scrollbar-color: #475569 #1e293b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            background-image: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-position: center;
+        }
+
+        .color-palette-nav {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 40;
+        }
+
+        .color-palette-nav.open {
+            transform: translateX(0);
+        }
+
+        @media (min-width: 768px) {
+            .color-palette-nav {
+                transform: translateX(0);
+            }
+        }
+        
+        .color-box {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: grab;
+        }
+        .color-box:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        }
+        .dragging {
+            opacity: 0.5;
+            transform: scale(1.1);
+        }
+
+        .glow-on-focus:focus-within {
+            box-shadow: 0 0 8px 2px rgba(20, 184, 166, 0.6);
+        }
+
+        /* Estilo para a barra de pesquisa customizada */
+        .character-search-input {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: #334155;
+            border: 1px solid #475569;
+            border-radius: 0.375rem;
+            color: #e2e8f0;
+            outline: none;
+        }
+        .character-search-input:focus {
+            border-color: #2dd4bf;
+            box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-900">
+
+    <div class="relative min-h-screen md:flex">
+        <!-- Overlay para o menu mobile -->
+        <div id="mobile-menu-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+
+        <!-- Botão do Menu Hamburguer (visível apenas em telas pequenas) -->
+        <button id="mobile-menu-button" class="md:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-slate-800/80 text-teal-300 backdrop-blur-sm border border-slate-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
+            </svg>
+        </button>
+
+        <!-- Paleta de Cores (Menu Lateral) -->
+        <nav id="color-palette" class="color-palette-nav fixed top-0 left-0 h-full w-64 md:w-28 bg-slate-900/80 backdrop-blur-md border-r border-slate-700 p-4 overflow-y-auto">
+            <h2 class="text-xl font-bold text-center text-teal-300 mb-6 tracking-wider hidden md:block">CTPs</h2>
+            <div class="flex flex-wrap md:flex-col gap-3 justify-center">
+                <!-- Fúria -->
+                <div class="color-box" draggable="true" data-color="#6600CC" title="Fúria Brilhante">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #6600CC;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Fúria B.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#9966FF" title="Fúria Poderoso">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #9966FF;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Fúria P.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#CC99FF" title="Fúria Normal">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #CC99FF;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Fúria N.</span>
+                </div>
+                <!-- Liberação -->
+                 <div class="color-box" draggable="true" data-color="#CC9900" title="Liberação Brilhante">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #CC9900;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Liberação B.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#FFFF00" title="Liberação Poderoso">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #FFFF00;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Liberação P.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#FFFF99" title="Liberação Normal">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #FFFF99;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Liberação N.</span>
+                </div>
+                <!-- Percepção -->
+                <div class="color-box" draggable="true" data-color="#CC0099" title="Percepção Brilhante">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #CC0099;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Percepção B.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#FF00FF" title="Percepção Poderoso">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #FF00FF;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Percepção P.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#FF99FF" title="Percepção Normal">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #FF99FF;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Percepção N.</span>
+                </div>
+                <!-- Competição -->
+                <div class="color-box" draggable="true" data-color="#0000FF" title="Competição Brilhante">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #0000FF;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Competição B.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#0066FF" title="Competição Poderoso">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #0066FF;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Competição P.</span>
+                </div>
+                <div class="color-box" draggable="true" data-color="#3399FF" title="Competição Normal">
+                    <div class="w-10 h-10 rounded-full" style="background-color: #3399FF;"></div>
+                    <span class="text-xs mt-1 hidden md:inline">Competição N.</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Conteúdo Principal -->
+        <main class="flex-1 md:ml-28 p-4 sm:p-6 lg:p-8">
+            <div class="w-full mx-auto bg-slate-800/70 p-4 sm:p-8 rounded-2xl shadow-2xl backdrop-blur-sm border border-slate-700">
+                <header class="text-center mb-8">
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-teal-300 tracking-wide">CONTROLE DE CTP'S E METAS</h1>
+                    <p class="text-slate-400 mt-2">BAX | BAL</p>
+                    <p class="text-slate-400 mt-4 font-light italic text-sm">
+                        <span class="hidden sm:inline">Arraste uma cor do menu e solte nas células para pintar. Dê um clique duplo para remover.</span>
+                        <span class="sm:hidden">Toque no menu ☰, arraste uma cor e pinte a célula.</span>
+                    </p>
+                </header>
+                
+                <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-8">
+                    <div class="w-full max-w-sm rounded-md bg-slate-700/50 transition-shadow duration-300 glow-on-focus">
+                        <input id="nickname-input" type="text" placeholder="Seu Nick no Jogo" class="w-full px-4 py-2 text-center bg-transparent text-white rounded-md placeholder-slate-400 focus:outline-none" readonly>
+                    </div>
+                    <button id="manage-characters-button" class="px-6 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/50 transition-all duration-300 transform hover:scale-105">
+                        Gerenciar Personagens
+                    </button>
+                    <button id="export-combined-image-button" class="px-6 py-3 bg-teal-600 text-white font-bold rounded-full shadow-lg hover:bg-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-500/50 transition-all duration-300 transform hover:scale-105">
+                        EXPORTAR IMAGEM
+                    </button>
+                </div>
+
+                <div id="table-container" class="space-y-10">
+                    <!-- As tabelas BAX e BAL serão renderizadas aqui pelo JavaScript -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Caixa de Mensagem (Toast) -->
+    <div id="message-box" class="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white opacity-0 hidden transition-all duration-300 transform translate-y-4">
+        <span id="message-text"></span>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-900/80 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-slate-800 p-6 rounded-lg shadow-xl border border-slate-600 max-w-sm w-full text-center">
+            <p id="modal-message" class="text-lg font-semibold text-white mb-6"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirm-btn" class="px-6 py-2 bg-red-600 text-white rounded-md shadow-md hover:bg-red-700 transition-colors duration-200 font-semibold">Confirmar</button>
+                <button id="cancel-btn" class="px-6 py-2 bg-slate-600 text-white rounded-md shadow-md hover:bg-slate-700 transition-colors duration-200 font-semibold">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Gerenciamento de Personagens -->
+    <div id="manage-characters-modal" class="fixed inset-0 bg-slate-900/80 flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-slate-800 p-6 rounded-lg shadow-xl border border-slate-600 w-full max-w-lg">
+            <h2 class="text-2xl font-bold text-center text-teal-300 mb-6">Gerenciar Personagens</h2>
+            <div class="mb-4">
+                <label for="day-select" class="block text-sm font-medium text-slate-400 mb-2">Selecione o Dia:</label>
+                <select id="day-select" class="w-full p-2 rounded-md bg-slate-700 text-white border border-slate-600 focus:outline-none focus:ring focus:border-blue-500">
+                </select>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Seção de Soladores -->
+                <div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Soladores</h3>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="add-solador-input" placeholder="Novo Solador" class="character-search-input flex-1">
+                        <button id="add-solador-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">+</button>
+                    </div>
+                    <ul id="solador-list" class="space-y-2 max-h-48 overflow-y-auto pr-2"></ul>
+                </div>
+
+                <!-- Seção de Suportes -->
+                <div>
+                    <h3 class="text-lg font-semibold text-white mb-2">Suportes</h3>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="add-suporte-input" placeholder="Novo Suporte" class="character-search-input flex-1">
+                        <button id="add-suporte-btn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">+</button>
+                    </div>
+                    <ul id="suporte-list" class="space-y-2 max-h-48 overflow-y-auto pr-2"></ul>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-4 mt-6">
+                <button id="save-characters-btn" class="px-6 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors font-semibold">Salvar e Fechar</button>
+                <button id="cancel-manage-btn" class="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors font-semibold">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- O SCRIPT FOI MOVIDO PARA O FINAL DO BODY PARA MELHOR PERFORMANCE -->
+    <script>
+        // Dados das tabelas e cores aplicadas
+        let tableData = {
+            bax: { data: [], colors: {} },
+            bal: { data: [], colors: {} }
+        };
+        let draggingColor = null;
+
+        // Dados de entrada em formato CSV para BAX e BAL
+        const baxCsv = `Calendário BAX,,,,
+Dia,Restrição,Solador,Suporte 1,Suporte 2
+1,Vilão | Energia,Doutor Estranho,Mysterio,Encantor
+2,Sem Restrição,Storm,Ciclope,Crystal
+3,Universal | Herói,Wanda,Satana,Ronan
+4,Combate | Herói,Gladiador,Mbaku,Valkyria
+5,Energia | Masculino,Doutor Estranho,Mysterio,Coulson
+6,Universal | Vilão,Mephisto,Proxima,Morgana
+7,Velocidade | Herói,Luna Snow,White Fox,Nick Fury
+8,Combate | Vilão,Hulk,Abominável,Red Hulk
+9,Sem Restrição,Storm,Ciclope,Crystal
+10,Universal | Herói | Feminino,Wanda,Satana,Angela
+11,Vilão | Feminino,Gwenpool,Pecado,Gata Negra
+12,Velocidade | Herói | Feminino,Luna Snow,White Fox,Misty Knight
+13,Combate | Feminino,Crescent,Sif,Valkyria
+14,Velocidade | Vilão,Mercenário,Pecado,Gata Negra
+`;
+        const balCsv = `Calendário BAL,,,,
+Dia,Restrição,Solador,Suporte 1,Suporte 2
+1,Velocidade | Humano | Feminino,Luna Snow,White Fox,Misty Knight
+2,Energia | Vilão | Masculino,Doutor Estranho,Mysterio,Líder
+3,Sem Restrições,Doutor Estranho,Pecado,Gata Negra
+4,Universal | Feminino,Wanda,Satana,Morgana
+5,Humano | Feminino,Luna Snow,White Fox,Misty Knight
+6,Combate | Vilão | Masculino,Hulk,Abominável,Red Hulk
+7,Energia | Mutante | Herói,Storm,Ciclope,Crystal
+8,Velocidade | Feminino,Luna Snow,White Fox,Misty Knight
+9,Herói | Alien | Masculino,Gladiador,Groot,Yondu
+10,Sem Restrições,Doutor Estranho,Pecado,Gata Negra
+11,Herói | Mutante | Feminino,Storm,Polaris,Crystal
+12,Supervilão | Alien,Loki,Proxima,Encantor
+13,Universal | Masculino,Mephisto,Ghost Panther,Ronan
+14,Combate | Humano | Masculino,Hulk,Abominável,Red Hulk
+`;
+        
+        // Listas customizadas de personagens
+        const defaultCustomLists = {
+            'bax-1': { solador: ['Doutor Estranho', 'Magneto'], suporte: ['Líder', 'Encantor', 'Mysterio'] },
+            'bax-2': { solador: ['Storm', 'Doutor Estranho', 'Luna Snow', 'Gladiador', 'Wanda', 'Jean Grey', 'Magneto', 'Psylocke', 'Hulk', 'Mercenário', 'Gwenpool', 'Ghost Rider', 'Mephisto'], suporte: ['Ciclope', 'Mistica', 'Nick Fury', 'Treinadora', 'Polaris', 'Chama Solar', 'Abominável', 'Líder', 'Pecado', 'Green Goblin', 'White Fox', 'Misty Knight', 'Yondu', 'Beta Ray Bill', 'Crystal', 'Encantor', 'Red Hulk', 'Sif', 'Angela', 'Ghost Panther', 'Robbie Reyes', 'NOVA (Richard)', 'Phylla-Vel', 'Gata Negra', 'Satana', 'Doutor Voodoo', 'Groot', 'Wong', 'Ancião', 'Proxima', 'Coulson', 'Shuri', 'Morgana', 'Ronan', 'Mbaku', 'Valkyria', 'Mysterio'] },
+            'bax-3': { solador: ['Wanda', 'Ghost Rider', 'Capitã Marvel', 'Thor'], suporte: ['Beta Ray Bill', 'Angela', 'Ghost Panther', 'NOVA (Richard)', 'Phylla-Vel', 'Satana', 'Doutor Voodoo', 'Ronan'] },
+            'bax-4': { solador: ['Gladiador', 'Venom', 'Crescent', 'Nebula', 'Hope'], suporte: ['Treinadora', 'Sif', 'Agente Venom', 'Groot', 'She Hulk', 'Mbaku', 'Valkyria'] },
+            'bax-5': { solador: ['Cable', 'Ciclope', 'Gambit', 'Magneto', 'Starlord', 'Doutor Estranho'], suporte: ['Ciclope', 'Líder', 'Ancião', 'Coulson', 'Mysterio'] },
+            'bax-6': { solador: ['Jean Grey', 'Loki', 'Thanos', 'Mephisto'], suporte: ['Hela', 'Proxima', 'Morgana', 'Antiman'] },
+            'bax-7': { solador: ['Luna Snow', 'Gamora', 'Vampira', 'Miles Morales', 'Winter Soldier'], suporte: ['Nick Fury', 'White Fox', 'Yondu', 'Shuri', 'Misty Knight', 'Wave'] },
+            'bax-8': { solador: ['Hulk', 'Apocalypse', 'Doc Oc'], suporte: ['Abominável', 'Red Hulk'] },
+            'bax-9': { solador: ['Storm', 'Doutor Estranho', 'Luna Snow', 'Gladiador', 'Wanda', 'Jean Grey', 'Magneto', 'Psylocke', 'Hulk', 'Mercenário', 'Gwenpool', 'Ghost Rider', 'Mephisto'], suporte: ['Ciclope', 'Mistica', 'Nick Fury', 'Treinadora', 'Polaris', 'Chama Solar', 'Abominável', 'Líder', 'Pecado', 'Green Goblin', 'White Fox', 'Misty Knight', 'Yondu', 'Beta Ray Bill', 'Crystal', 'Encantor', 'Red Hulk', 'Sif', 'Angela', 'Ghost Panther', 'Robbie Reyes', 'NOVA (Richard)', 'Phylla-Vel', 'Gata Negra', 'Satana', 'Doutor Voodoo', 'Groot', 'Wong', 'Ancião', 'Proxima', 'Coulson', 'Shuri', 'Morgana', 'Ronan', 'Mbaku', 'Valkyria', 'Mysterio'] },
+            'bax-10': { solador: ['Wanda', 'Capitã Marvel'], suporte: ['Angela', 'Phylla-Vel', 'Satana'] },
+            'bax-11': { solador: ['Jean Grey', 'Gwenpool', 'Mistica'], suporte: ['Mistica', 'Pecado', 'Gata Negra', 'Encantor', 'Proxima', 'Morgana'] },
+            'bax-12': { solador: ['Gamora', 'Luna Snow', 'Vampira'], suporte: ['White Fox', 'Shuri', 'Misty Knight', 'Wave'] },
+            'bax-13': { solador: ['Crescent', 'Hope', 'Nebula', 'Treinadora'], suporte: ['Treinadora', 'Sif', 'She Hulk', 'Valkyria'] },
+            'bax-14': { solador: ['Mercenário', 'Mistíca', 'Gwenpool', 'Green Goblin'], suporte: ['Mistica', 'Green Goblin', 'Pecado', 'Zemo', 'Gata Negra'] },
+            'bal-1': { solador: ['Luna Snow', 'Gwenpool'], suporte: ['Shuri', 'Pecado', 'White Fox', 'Misty Knight', 'Wave', 'Gata Negra'] },
+            'bal-2': { solador: ['Doutor Estranho', 'Magneto'], suporte: ['Líder', 'Mysterio'] },
+            'bal-3': { solador: ['Storm', 'Doutor Estranho', 'Luna Snow', 'Gladiador', 'Wanda', 'Jean Grey', 'Magneto', 'Psylocke', 'Hulk', 'Mercenário', 'Gwenpool', 'Ghost Rider', 'Mephisto'], suporte: ['Ciclope', 'Mistica', 'Nick Fury', 'Treinadora', 'Polaris', 'Chama Solar', 'Abominável', 'Líder', 'Pecado', 'Green Goblin', 'White Fox', 'Misty Knight', 'Yondu', 'Beta Ray Bill', 'Crystal', 'Encantor', 'Red Hulk', 'Sif', 'Angela', 'Ghost Panther', 'Robbie Reyes', 'NOVA (Richard)', 'Phylla-Vel', 'Gata Negra', 'Satana', 'Doutor Voodoo', 'Groot', 'Wong', 'Wong', 'Ancião', 'Proxima', 'Coulson', 'Shuri', 'Morgana', 'Ronan', 'Mbaku', 'Valkyria', 'Mysterio'] },
+            'bal-4': { solador: ['Wanda', 'Capitã Marvel', 'Jean Grey'], suporte: ['Hela', 'Angela', 'Proxima', 'Morgana', 'Phylla-Vel', 'Satana'] },
+            'bal-5': { solador: ['Crescent', 'Luna Snow', 'Capitã Marvel', 'Gwenpool', 'Treinadora'], suporte: ['Shuri', 'Treinadora', 'She Hulk', 'Pecado', 'White Fox', 'Morgana', 'Riri Williams', 'Misty Knight', 'Wave', 'Gata Negra'] },
+            'bal-6': { solador: ['Hulk', 'Doc Oc', 'Apocalypse'], suporte: ['Abominável', 'Red Hulk'] },
+            'bal-7': { solador: ['Cable', 'Ciclope', 'Gambit', 'Psylocke', 'Storm'], suporte: ['Ciclope', 'Polaris', 'Crystal'] },
+            'bal-8': { solador: ['Luna Snow', 'Vampira', 'Gamora', 'Mistica', 'Gwenpool'], suporte: ['Shuri', 'Misty Knight', 'Mistica', 'Pecado', 'White Fox', 'Gata Negra', 'Wave'] },
+            'bal-9': { solador: ['Gladiador', 'Starlord', 'Beta Ray Bill', 'Thor'], suporte: ['Starlord', 'Ronan', 'Beta Ray Bill', 'Groot', 'Yondu', 'Rocket'] },
+            'bal-10': { solador: ['Storm', 'Doutor Estranho', 'Luna Snow', 'Gladiador', 'Wanda', 'Jean Grey', 'Magneto', 'Psylocke', 'Hulk', 'Mercenário', 'Gwenpool', 'Ghost Rider', 'Mephisto'], suporte: ['Ciclope', 'Mistica', 'Nick Fury', 'Treinadora', 'Polaris', 'Chama Solar', 'Abominável', 'Líder', 'Pecado', 'Green Goblin', 'White Fox', 'Misty Knight', 'Yondu', 'Beta Ray Bill', 'Crystal', 'Encantor', 'Red Hulk', 'Sif', 'Angela', 'Ghost Panther', 'Robbie Reyes', 'NOVA (Richard)', 'Phylla-Vel', 'Gata Negra', 'Satana', 'Doutor Voodoo', 'Groot', 'Wong', 'Wong', 'Ancião', 'Proxima', 'Coulson', 'Shuri', 'Morgana', 'Ronan', 'Mbaku', 'Valkyria', 'Mysterio'] },
+            'bal-11': { solador: ['Psylocke', 'Storm', 'Vampira'], suporte: ['Polaris', 'Kitty Pride', 'Crystal'] },
+            'bal-12': { solador: ['Loki', 'Knull', 'Thanos'], suporte: ['Hela', 'Encantor', 'Proxima'] },
+            'bal-13': { solador: ['Loki', 'Mephisto', 'Thanos', 'Thor', 'Ghost Rider'], suporte: ['Ghost Panther', 'Ronan', 'Beta Ray Bill', 'Doutor Voodoo', 'Ghost Panther', 'Robbie Reyes', 'NOVA (Richard)'] },
+            'bal-14': { solador: ['Doc Oc', 'Hulk', 'Venom'], suporte: ['Abominável', 'Mbaku', 'Agente Venom', 'Red Hulk'] }
+        };
+
+        // Carrega as listas de personagens do localStorage ou usa o padrão
+        let customLists = {};
+        const loadCustomLists = () => {
+            try {
+                const storedLists = localStorage.getItem('customLists');
+                if (storedLists) {
+                    customLists = JSON.parse(storedLists);
+                } else {
+                    customLists = defaultCustomLists;
+                    saveCustomLists();
+                }
+            } catch (e) {
+                console.error('Erro ao carregar do localStorage:', e);
+                customLists = defaultCustomLists;
+            }
+        };
+
+        const saveCustomLists = () => {
+            try {
+                localStorage.setItem('customLists', JSON.stringify(customLists));
+            } catch (e) {
+                console.error('Erro ao salvar no localStorage:', e);
+            }
+        };
+
+        const daysOfWeek = ['QUI', 'SEX', 'SÁB', 'DOM', 'SEG', 'TER', 'QUA'];
+        
+        const isColorLight = (hex) => {
+            if (!hex || typeof hex !== 'string' || hex.length < 4) return false;
+            let r, g, b;
+            if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else {
+                r = parseInt(hex.substring(1, 3), 16);
+                g = parseInt(hex.substring(3, 5), 16);
+                b = parseInt(hex.substring(5, 7), 16);
+            }
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.5;
+        };
+
+        const parseCsv = (csvString) => {
+            const lines = csvString.trim().split('\n');
+            const headerLine = lines[1];
+            if (!headerLine) return { headers: [], data: [] };
+            const headers = headerLine.split(',').map(h => h.trim()).filter(h => h);
+            const dataLines = lines.slice(2);
+            const data = dataLines.map(line => {
+                const values = line.split(',').map(v => v.trim());
+                let obj = {};
+                headers.forEach((header, index) => obj[header] = values[index] || '');
+                return obj;
+            });
+            return { headers, data };
+        };
+
+        const getCharactersByRole = (baxData, balData) => {
+            const soladorCharacters = new Set();
+            const suporteCharacters = new Set();
+            
+            const extractCharacters = (data) => {
+                data.forEach(row => {
+                    if (row['Solador']) soladorCharacters.add(row['Solador']);
+                    if (row['Suporte 1']) suporteCharacters.add(row['Suporte 1']);
+                    if (row['Suporte 2']) suporteCharacters.add(row['Suporte 2']);
+                });
+            };
+
+            extractCharacters(baxData);
+            extractCharacters(balData);
+            
+            return {
+                soladors: Array.from(soladorCharacters).sort(),
+                suportes: Array.from(suporteCharacters).sort()
+            };
+        };
+
+        const showMessage = (message, type) => {
+            const messageBox = document.getElementById('message-box');
+            const messageText = document.getElementById('message-text');
+            messageText.textContent = message;
+            
+            const typeClasses = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+            
+            messageBox.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white transition-all duration-300 transform ${typeClasses[type] || 'bg-gray-600'}`;
+            messageBox.classList.remove('opacity-0', 'hidden', 'translate-y-4');
+            messageBox.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                messageBox.classList.remove('opacity-100', 'translate-y-0');
+                messageBox.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => messageBox.classList.add('hidden'), 300);
+            }, 3000);
+        };
+        
+        const showConfirmModal = (message, onConfirm) => {
+            const modal = document.getElementById('confirm-modal');
+            const modalMessage = document.getElementById('modal-message');
+            const confirmBtn = document.getElementById('confirm-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+
+            modalMessage.textContent = message;
+            modal.classList.remove('hidden');
+
+            const handleConfirm = () => {
+                onConfirm();
+                modal.classList.add('hidden');
+                confirmBtn.removeEventListener('click', handleConfirm);
+                cancelBtn.removeEventListener('click', handleCancel);
+            };
+
+            const handleCancel = () => {
+                modal.classList.add('hidden');
+                confirmBtn.removeEventListener('click', handleConfirm);
+                cancelBtn.removeEventListener('click', handleCancel);
+            };
+
+            confirmBtn.addEventListener('click', handleConfirm);
+            cancelBtn.addEventListener('click', handleCancel);
+        };
+
+        const createSearchableDropdown = (optionsList, currentValue, onSelectCallback, cell) => {
+            const container = document.createElement('div');
+            container.className = 'relative inline-block w-full';
+            
+            const input = document.createElement('input');
+            input.className = 'w-full bg-transparent outline-none focus:outline-none cursor-pointer';
+            input.readOnly = true;
+            input.value = currentValue;
+            
+            if (cell.style.backgroundColor) {
+                const hexColor = rgbToHex(cell.style.backgroundColor);
+                input.style.color = isColorLight(hexColor) ? '#0f172a' : '#f8fafc';
+            } else {
+                input.style.color = '#e2e8f0';
+            }
+            container.appendChild(input);
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'absolute z-50 mt-1 bg-slate-900 border border-teal-500 rounded-md shadow-lg max-h-48 overflow-y-auto hidden';
+            
+            const searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.placeholder = 'Pesquisar...';
+            searchInput.className = 'w-full p-2 sticky top-0 bg-slate-800 border-b border-teal-500 outline-none text-white';
+            dropdown.appendChild(searchInput);
+
+            const optionsListDiv = document.createElement('div');
+            optionsListDiv.className = 'p-1';
+            dropdown.appendChild(optionsListDiv);
+
+            const renderOptions = (filter = '') => {
+                optionsListDiv.innerHTML = '';
+                const filteredOptions = optionsList.filter(char => char.toLowerCase().includes(filter.toLowerCase()));
+                filteredOptions.forEach(character => {
+                    const optionDiv = document.createElement('div');
+                    optionDiv.className = 'p-2 hover:bg-teal-500 hover:text-slate-900 cursor-pointer rounded-md text-white transition-colors duration-200';
+                    optionDiv.textContent = character;
+                    optionDiv.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        onSelectCallback(character);
+                        input.value = character;
+                        document.body.removeChild(dropdown);
+                    });
+                    optionsListDiv.appendChild(optionDiv);
+                });
+            };
+
+            input.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const existingDropdown = document.querySelector('.active-dropdown');
+                if (existingDropdown) document.body.removeChild(existingDropdown);
+                
+                const rect = input.getBoundingClientRect();
+                dropdown.style.top = `${rect.bottom + window.scrollY}px`;
+                dropdown.style.left = `${rect.left + window.scrollX}px`;
+                dropdown.style.width = `${rect.width}px`;
+                dropdown.classList.remove('hidden');
+                dropdown.classList.add('active-dropdown');
+                document.body.appendChild(dropdown);
+                searchInput.focus({ preventScroll: true });
+                renderOptions();
+            });
+
+            searchInput.addEventListener('input', (e) => renderOptions(e.target.value));
+
+            document.addEventListener('click', (e) => {
+                if (!dropdown.contains(e.target) && !container.contains(e.target) && document.body.contains(dropdown)) {
+                     document.body.removeChild(dropdown);
+                }
+            });
+            
+            return container;
+        };
+
+        const rgbToHex = (rgb) => {
+            if (!rgb) return null;
+            const result = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(rgb);
+            return result ? "#" + 
+                (1 << 24 | parseInt(result[1]) << 16 | parseInt(result[2]) << 8 | parseInt(result[3])).toString(16).slice(1).toUpperCase() : rgb;
+        };
+        
+        const createTableElement = (data, colors, tableType, charactersByRole, forExport = false) => {
+            if (!data || data.length === 0) {
+                return '<p class="text-center text-slate-500">Nenhum dado para exibir.</p>';
+            }
+
+            let tableHtml = `<div class="bg-slate-900/50 border border-slate-700 rounded-lg shadow-md backdrop-blur-sm">
+                                <div class="flex flex-col sm:flex-row justify-between items-center p-4 border-b border-slate-700">
+                                    <h2 class="text-xl font-bold text-teal-300 mb-2 sm:mb-0">${tableType.toUpperCase()}</h2>
+                                    ${!forExport ? `<button id="clear-${tableType}-button" class="px-3 py-1 bg-red-600 text-white text-sm font-semibold rounded-md shadow-md hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500">Limpar Cores</button>` : ''}
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm text-left text-slate-300">
+                                        <thead class="text-xs text-teal-300 uppercase bg-slate-800/60">
+                                            <tr>
+                                                <th scope="col" class="px-3 py-3">Dia</th>
+                                                <th scope="col" class="px-3 py-3">Restrição</th>
+                                                <th scope="col" class="px-3 py-3">Solador</th>
+                                                <th scope="col" class="px-3 py-3">Suporte 1</th>
+                                                <th scope="col" class="px-3 py-3">Suporte 2</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>`;
+            
+            data.forEach((rowData, rowIndex) => {
+                const dayOfWeek = daysOfWeek[rowIndex % 7];
+                tableHtml += `<tr class="border-b border-slate-700 hover:bg-slate-800/50">
+                                <td class="px-3 py-3 font-medium whitespace-nowrap">${rowData['Dia']} - ${dayOfWeek}</td>
+                                <td class="px-3 py-3">${rowData['Restrição']}</td>`;
+                
+                ['Solador', 'Suporte 1', 'Suporte 2'].forEach((header, colIndexOffset) => {
+                    const colIndex = colIndexOffset + 2;
+                    const cellKey = `${rowIndex}-${colIndex}-${tableType}`;
+                    const cellColor = colors[cellKey] || '';
+                    const cellTextColor = isColorLight(cellColor) ? '#0f172a' : '#f8fafc';
+
+                    if (forExport) {
+                        tableHtml += `<td class="px-3 py-3" style="background-color: ${cellColor}; color: ${cellTextColor};">${rowData[header]}</td>`;
+                    } else {
+                        tableHtml += `<td class="px-3 py-3" data-row-index="${rowIndex}" data-col-index="${colIndex}" data-table-type="${tableType}" id="${cellKey}" style="background-color: ${cellColor};">
+                                        <div id="dropdown-container-${cellKey}"></div>
+                                     </td>`;
+                    }
+                });
+
+                tableHtml += `</tr>`;
+            });
+
+            tableHtml += `</tbody></table></div></div>`;
+            return tableHtml;
+        };
+
+        const renderTables = () => {
+            const tableContainer = document.getElementById('table-container');
+            tableContainer.innerHTML = '';
+            
+            tableData.bax.data = parseCsv(baxCsv).data;
+            tableData.bal.data = parseCsv(balCsv).data;
+
+            const charactersByRole = getCharactersByRole(tableData.bax.data, tableData.bal.data);
+            
+            tableContainer.innerHTML = createTableElement(tableData.bax.data, tableData.bax.colors, 'bax', charactersByRole) + 
+                                       createTableElement(tableData.bal.data, tableData.bal.colors, 'bal', charactersByRole);
+            
+            addTableInteractivity(charactersByRole);
+        };
+        
+        const addTableInteractivity = (charactersByRole) => {
+             ['bax', 'bal'].forEach(tableType => {
+                tableData[tableType].data.forEach((rowData, rowIndex) => {
+                    ['Solador', 'Suporte 1', 'Suporte 2'].forEach((header, colIndexOffset) => {
+                        const colIndex = colIndexOffset + 2;
+                        const cellId = `${rowIndex}-${colIndex}-${tableType}`;
+                        const cell = document.getElementById(cellId);
+                        
+                        if (!cell) return;
+                        
+                        cell.ondblclick = () => {
+                            delete tableData[tableType].colors[cellId];
+                            cell.style.backgroundColor = '';
+                            const input = cell.querySelector('input');
+                            if (input) input.style.color = '#e2e8f0';
+                        };
+                        
+                        cell.ondragover = (event) => event.preventDefault();
+                        cell.ondrop = (event) => {
+                            event.preventDefault();
+                            const color = event.dataTransfer.getData('text/plain');
+                            const targetCell = event.target.closest('td');
+                            if (targetCell) applyColorToCell(targetCell, color);
+                        };
+
+                        const dropdownContainer = document.getElementById(`dropdown-container-${cellId}`);
+                        if (dropdownContainer) {
+                            let optionsList = [];
+                            const dayKey = `${tableType}-${rowData.Dia}`;
+                            const customDayList = customLists[dayKey];
+                            
+                            if (customDayList) {
+                                optionsList = header === 'Solador' ? customDayList.solador : customDayList.suporte;
+                            } else {
+                                optionsList = header === 'Solador' ? charactersByRole.soladors : charactersByRole.suportes;
+                            }
+                            
+                            const dropdown = createSearchableDropdown(optionsList, rowData[header], (selected) => {
+                                rowData[header] = selected;
+                            }, cell);
+                            dropdownContainer.appendChild(dropdown);
+                        }
+                    });
+                });
+
+                const clearButton = document.getElementById(`clear-${tableType}-button`);
+                if (clearButton) {
+                    clearButton.addEventListener('click', () => {
+                        showConfirmModal(`Tem certeza de que deseja limpar todas as cores da tabela ${tableType.toUpperCase()}?`, () => {
+                            tableData[tableType].colors = {};
+                            renderTables();
+                            showMessage(`Cores de ${tableType.toUpperCase()} limpas.`, 'success');
+                        });
+                    });
+                }
+            });
+        };
+
+        const exportCombinedImage = () => {
+            const nickname = document.getElementById('nickname-input').value;
+            showMessage('Gerando imagem, aguarde...', 'info');
+            
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'absolute';
+            tempContainer.style.left = '-9999px';
+            tempContainer.style.width = '1200px'; 
+            tempContainer.style.padding = '40px'; 
+            tempContainer.style.backgroundColor = '#0f172a';
+            tempContainer.style.color = '#e2e8f0';
+            document.body.appendChild(tempContainer);
+
+            const titleElement = document.createElement('h1');
+            titleElement.textContent = `BAX e BAL de ${nickname || 'Player'}`;
+            titleElement.className = 'text-4xl font-bold text-center mb-8';
+            titleElement.style.color = '#2dd4bf';
+            tempContainer.appendChild(titleElement);
+            
+            const charactersByRole = getCharactersByRole(tableData.bax.data, tableData.bal.data);
+            const baxHtml = createTableElement(tableData.bax.data, tableData.bax.colors, 'bax', charactersByRole, true);
+            const balHtml = createTableElement(tableData.bal.data, tableData.bal.colors, 'bal', charactersByRole, true);
+            
+            const tablesWrapper = document.createElement('div');
+            tablesWrapper.className = 'space-y-10';
+            tablesWrapper.innerHTML = baxHtml + balHtml;
+            tempContainer.appendChild(tablesWrapper);
+
+            html2canvas(tempContainer, { 
+                useCORS: true, 
+                backgroundColor: '#0f172a',
+                scale: 1.5
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = `CTPS_${nickname || 'combinado'}.png`;
+                link.click();
+                showMessage('Imagem exportada com sucesso!', 'success');
+            }).catch(e => {
+                showMessage('Erro ao gerar imagem: ' + e.message, 'error');
+            }).finally(() => {
+                document.body.removeChild(tempContainer);
+            });
+        };
+        
+        const applyColorToCell = (cell, color) => {
+            const { rowIndex, colIndex, tableType } = cell.dataset;
+            const cellKey = `${rowIndex}-${colIndex}-${tableType}`;
+            
+            cell.style.backgroundColor = color;
+            tableData[tableType].colors[cellKey] = color;
+            
+            const inputElement = cell.querySelector('input');
+            if (inputElement) {
+                inputElement.style.color = isColorLight(color) ? '#0f172a' : '#f8fafc';
+            }
+        };
+
+        const setupMobileMenu = () => {
+            const menuButton = document.getElementById('mobile-menu-button');
+            const menu = document.getElementById('color-palette');
+            const overlay = document.getElementById('mobile-menu-overlay');
+
+            const toggleMenu = () => {
+                menu.classList.toggle('open');
+                overlay.classList.toggle('hidden');
+            };
+
+            menuButton.addEventListener('click', toggleMenu);
+            overlay.addEventListener('click', toggleMenu);
+        };
+        
+        // Funções para Gerenciar Personagens
+        let currentManageDay = '';
+
+        const manageModal = document.getElementById('manage-characters-modal');
+        const daySelect = document.getElementById('day-select');
+        const addSoladorInput = document.getElementById('add-solador-input');
+        const addSoladorBtn = document.getElementById('add-solador-btn');
+        const soladorList = document.getElementById('solador-list');
+        const addSuporteInput = document.getElementById('add-suporte-input');
+        const addSuporteBtn = document.getElementById('add-suporte-btn');
+        const suporteList = document.getElementById('suporte-list');
+        const saveCharactersBtn = document.getElementById('save-characters-btn');
+        const cancelManageBtn = document.getElementById('cancel-manage-btn');
+
+        const populateManagementModal = (dayKey) => {
+            currentManageDay = dayKey;
+            soladorList.innerHTML = '';
+            suporteList.innerHTML = '';
+
+            const dayLists = customLists[dayKey] || { solador: [], suporte: [] };
+
+            dayLists.solador.forEach(char => createCharacterItem(soladorList, char, 'solador'));
+            dayLists.suporte.forEach(char => createCharacterItem(suporteList, char, 'suporte'));
+        };
+
+        const createCharacterItem = (listElement, charName, role) => {
+            const li = document.createElement('li');
+            li.className = 'flex justify-between items-center bg-slate-700 p-2 rounded-md';
+            li.innerHTML = `
+                <span class="text-white">${charName}</span>
+                <button class="remove-char-btn text-red-400 hover:text-red-500 font-bold leading-none p-1 transition-colors duration-200" data-role="${role}" data-name="${charName}">
+                    &times;
+                </button>
+            `;
+            listElement.appendChild(li);
+        };
+
+        const handleAddCharacter = (role) => {
+            const input = role === 'solador' ? addSoladorInput : addSuporteInput;
+            const charName = input.value.trim();
+            if (!charName) return;
+
+            if (!customLists[currentManageDay]) {
+                customLists[currentManageDay] = { solador: [], suporte: [] };
+            }
+
+            const list = customLists[currentManageDay][role];
+            if (!list.includes(charName)) {
+                list.push(charName);
+                list.sort();
+                populateManagementModal(currentManageDay);
+                input.value = '';
+                showMessage(`${charName} adicionado à lista.`, 'success');
+            } else {
+                showMessage(`${charName} já existe na lista.`, 'info');
+            }
+        };
+
+        const handleRemoveCharacter = (role, charName) => {
+            if (customLists[currentManageDay] && customLists[currentManageDay][role]) {
+                const list = customLists[currentManageDay][role];
+                const index = list.indexOf(charName);
+                if (index > -1) {
+                    list.splice(index, 1);
+                    populateManagementModal(currentManageDay);
+                    showMessage(`${charName} removido da lista.`, 'info');
+                }
+            }
+        };
+
+        // Inicialização do aplicativo
+        window.onload = () => {
+            loadCustomLists();
+            renderTables();
+
+            document.getElementById('export-combined-image-button').addEventListener('click', exportCombinedImage);
+            document.getElementById('manage-characters-button').addEventListener('click', () => {
+                manageModal.classList.remove('hidden');
+                // Preencher o select do modal com todas as opções
+                daySelect.innerHTML = '';
+                tableData.bax.data.forEach(row => {
+                    const option = document.createElement('option');
+                    option.value = `bax-${row.Dia}`;
+                    option.textContent = `BAX - Dia ${row.Dia}`;
+                    daySelect.appendChild(option);
+                });
+                tableData.bal.data.forEach(row => {
+                    const option = document.createElement('option');
+                    option.value = `bal-${row.Dia}`;
+                    option.textContent = `BAL - Dia ${row.Dia}`;
+                    daySelect.appendChild(option);
+                });
+                
+                // Popula a modal com o primeiro dia por padrão
+                populateManagementModal(daySelect.value);
+            });
+
+            daySelect.addEventListener('change', (e) => {
+                populateManagementModal(e.target.value);
+            });
+            addSoladorBtn.addEventListener('click', () => handleAddCharacter('solador'));
+            addSuporteBtn.addEventListener('click', () => handleAddCharacter('suporte'));
+
+            // Use delegação de eventos para os botões de remover
+            soladorList.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-char-btn')) {
+                    const role = e.target.dataset.role;
+                    const charName = e.target.dataset.name;
+                    handleRemoveCharacter(role, charName);
+                }
+            });
+            suporteList.addEventListener('click', (e) => {
+                if (e.target.classList.contains('remove-char-btn')) {
+                    const role = e.target.dataset.role;
+                    const charName = e.target.dataset.name;
+                    handleRemoveCharacter(role, charName);
+                }
+            });
+
+            saveCharactersBtn.addEventListener('click', () => {
+                saveCustomLists();
+                manageModal.classList.add('hidden');
+                renderTables();
+                showMessage('Listas de personagens salvas!', 'success');
+            });
+            cancelManageBtn.addEventListener('click', () => {
+                manageModal.classList.add('hidden');
+                loadCustomLists(); // Recarrega os dados para descartar alterações
+            });
+
+            // Adiciona a funcionalidade de clique para remover o atributo readonly
+            const nicknameInput = document.getElementById('nickname-input');
+            nicknameInput.addEventListener('click', () => {
+                nicknameInput.removeAttribute('readonly');
+                nicknameInput.focus();
+            });
+
+            setupMobileMenu();
+            
+            document.querySelectorAll('.color-box').forEach(box => {
+                box.addEventListener('dragstart', (event) => {
+                    event.dataTransfer.setData('text/plain', event.target.closest('.color-box').dataset.color);
+                    event.target.closest('.color-box').classList.add('dragging');
+                });
+                box.addEventListener('dragend', (event) => {
+                    event.target.closest('.color-box').classList.remove('dragging');
+                });
+                
+                box.addEventListener('touchstart', (event) => {
+                    event.preventDefault();
+                    const colorBox = event.target.closest('.color-box');
+                    draggingColor = colorBox.dataset.color;
+                    colorBox.classList.add('dragging');
+                }, { passive: false });
+
+                box.addEventListener('touchmove', (event) => {
+                    event.preventDefault();
+                }, { passive: false });
+
+                box.addEventListener('touchend', (event) => {
+                    const colorBox = event.target.closest('.color-box');
+                    colorBox.classList.remove('dragging');
+                    
+                    const touch = event.changedTouches[0];
+                    const dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const cell = dropTarget ? dropTarget.closest('td') : null;
+                    
+                    if (cell && cell.dataset.tableType && draggingColor) {
+                        applyColorToCell(cell, draggingColor);
+                    }
+                    draggingColor = null;
+                });
+            });
+        };
+    </script>
+</body>
+</html>
