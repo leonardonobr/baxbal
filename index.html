@@ -497,6 +497,9 @@
             bal: { data: [], colors: {} }
         };
         let draggingColor = null;
+        
+        // Sistema de rastreamento de CTP por personagem (sempre ativo)
+        let characterCtpMapping = {}; // { "characterName": "colorHex" }
 
         // --- NOVO: salvar e carregar progresso ---
         const saveProgress = () => {
@@ -990,10 +993,21 @@ Dia,Restrição,Solador,Suporte 1,Suporte 2
                         
                         // Evento para remover cor (funciona em desktop e mobile)
                         cell.ondblclick = () => {
-                            delete tableData[tableType].colors[cellId];
-                            cell.style.backgroundColor = '';
-                            const input = cell.querySelector('input');
-                            if (input) input.style.color = getComputedStyle(document.body).getPropertyValue('--text-primary');
+                            console.log('Double-click detected on cell:', cellId);
+                            const characterName = getCharacterNameFromCell(tableType, rowIndex, colIndex);
+                            console.log('Character name from double-clicked cell:', characterName);
+                            
+                            if (characterName) {
+                                // Remove CTP do personagem (todas as instâncias)
+                                removeCtpFromCharacter(characterName);
+                            } else {
+                                // Fallback para remover cor da célula individual
+                                console.log('No character name found, removing color from individual cell');
+                                delete tableData[tableType].colors[cellId];
+                                cell.style.backgroundColor = '';
+                                const input = cell.querySelector('input');
+                                if (input) input.style.color = getComputedStyle(document.body).getPropertyValue('--text-primary');
+                            }
                             updateAllTables();
                         };
                         
@@ -1040,8 +1054,33 @@ Dia,Restrição,Solador,Suporte 1,Suporte 2
                             }
                             
                             const dropdown = createSearchableDropdown(optionsList, rowData[header], (selected) => {
+                                console.log(`Dropdown selection: ${selected} for ${header} in ${tableType}-${rowData.Dia}`);
+                                
+                                // Guarda a cor atual da célula se houver
+                                const currentCellKey = `${rowIndex}-${colIndex}-${tableType}`;
+                                const currentColor = tableData[tableType].colors[currentCellKey];
+                                
                                 // Atualiza o dado diretamente na estrutura de dados
+                                const oldCharacter = tableData[tableType].data[rowIndex][header];
                                 tableData[tableType].data[rowIndex][header] = selected;
+                                
+                                console.log(`Character changed from '${oldCharacter}' to '${selected}'`);
+                                
+                                // Se havia uma cor aplicada e o personagem mudou
+                                if (currentColor && oldCharacter !== selected) {
+                                    console.log(`Transferring color ${currentColor} from '${oldCharacter}' to '${selected}'`);
+                                    
+                                    // Remove a cor do personagem antigo
+                                    if (oldCharacter) {
+                                        removeCtpFromCharacter(oldCharacter);
+                                    }
+                                    
+                                    // Aplica a cor ao novo personagem
+                                    if (selected) {
+                                        applyCtpToCharacter(selected, currentColor);
+                                    }
+                                }
+                                
                                 updateAllTables();
                             }, cell);
                             dropdownContainer.appendChild(dropdown);
@@ -1108,18 +1147,139 @@ Dia,Restrição,Solador,Suporte 1,Suporte 2
             });
         };
         
+        // Funções para rastreamento de CTP cross-day
+        const getCharacterNameFromCell = (tableType, rowIndex, colIndex) => {
+            const data = tableData[tableType].data[rowIndex];
+            if (!data) return null;
+            
+            const columns = ['Dia', 'Restrição', 'Solador', 'Suporte 1', 'Suporte 2'];
+            const columnName = columns[colIndex];
+            return data[columnName] || null;
+        };
+        
+        const findAllCellsForCharacter = (characterName) => {
+            const cells = [];
+            
+            ['bax', 'bal'].forEach(tableType => {
+                tableData[tableType].data.forEach((rowData, rowIndex) => {
+                    ['Solador', 'Suporte 1', 'Suporte 2'].forEach((header, colIndexOffset) => {
+                        const colIndex = colIndexOffset + 2;
+                        if (rowData[header] === characterName) {
+                            const cellKey = `${rowIndex}-${colIndex}-${tableType}`;
+                            cells.push({ cellKey, tableType, rowIndex, colIndex });
+                        }
+                    });
+                });
+            });
+            
+            return cells;
+        };
+        
+        const applyCtpToCharacter = (characterName, color) => {
+            if (!characterName) return;
+            
+            console.log(`applyCtpToCharacter called: ${characterName}, color: ${color}`);
+            
+            // Atualiza o mapeamento do personagem
+            if (color) {
+                characterCtpMapping[characterName] = color;
+            } else {
+                delete characterCtpMapping[characterName];
+            }
+            
+            // Encontra todas as células com este personagem
+            const cells = findAllCellsForCharacter(characterName);
+            console.log(`Found ${cells.length} cells for character ${characterName}:`, cells);
+            
+            // Aplica a cor a todas as células
+            cells.forEach(({ cellKey, tableType }) => {
+                if (color) {
+                    tableData[tableType].colors[cellKey] = color;
+                } else {
+                    delete tableData[tableType].colors[cellKey];
+                }
+                
+                // Atualiza a célula visualmente
+                const cellElement = document.getElementById(cellKey);
+                if (cellElement) {
+                    cellElement.style.backgroundColor = color || '';
+                    const inputElement = cellElement.querySelector('input');
+                    if (inputElement) {
+                        inputElement.style.color = color ? (isColorLight(color) ? '#0f172a' : '#f8fafc') : getComputedStyle(document.body).getPropertyValue('--text-primary');
+                    }
+                    console.log(`Updated cell ${cellKey} with color ${color}`);
+                } else {
+                    console.log(`Cell element not found: ${cellKey}`);
+                }
+            });
+        };
+        
+        const removeCtpFromCharacter = (characterName) => {
+            console.log(`removeCtpFromCharacter called: ${characterName}`);
+            applyCtpToCharacter(characterName, null);
+        };
+        
+        const syncCharacterCtpOnLoad = () => {
+            console.log('syncCharacterCtpOnLoad called');
+            // Sincroniza o mapeamento baseado nas cores existentes nas células
+            const tempMapping = {};
+            
+            ['bax', 'bal'].forEach(tableType => {
+                tableData[tableType].data.forEach((rowData, rowIndex) => {
+                    ['Solador', 'Suporte 1', 'Suporte 2'].forEach((header, colIndexOffset) => {
+                        const colIndex = colIndexOffset + 2;
+                        const cellKey = `${rowIndex}-${colIndex}-${tableType}`;
+                        const color = tableData[tableType].colors[cellKey];
+                        const characterName = rowData[header];
+                        
+                        if (color && characterName) {
+                            // Se já existe um mapeamento diferente, remove a cor da célula
+                            if (tempMapping[characterName] && tempMapping[characterName] !== color) {
+                                delete tableData[tableType].colors[cellKey];
+                            } else {
+                                tempMapping[characterName] = color;
+                            }
+                        }
+                    });
+                });
+            });
+            
+            // Atualiza o mapeamento global
+            characterCtpMapping = tempMapping;
+            console.log('Character CTP mapping after sync:', characterCtpMapping);
+            
+            // Aplica as cores consistentemente
+            for (const characterName in characterCtpMapping) {
+                applyCtpToCharacter(characterName, characterCtpMapping[characterName]);
+            }
+        };
+        
         const applyColorToCell = (cell, color) => {
             const { rowIndex, colIndex, tableType } = cell.dataset;
             const cellKey = `${rowIndex}-${colIndex}-${tableType}`;
             
-            cell.style.backgroundColor = color;
-            tableData[tableType].colors[cellKey] = color;
+            console.log(`applyColorToCell called: cellKey=${cellKey}, color=${color}`);
             
-            const inputElement = cell.querySelector('input');
-            if (inputElement) {
-                saveProgress();
-                inputElement.style.color = isColorLight(color) ? '#0f172a' : '#f8fafc';
+            // Sempre usar rastreamento cross-day
+            const characterName = getCharacterNameFromCell(tableType, parseInt(rowIndex), parseInt(colIndex));
+            console.log(`Character name from cell: ${characterName}`);
+            
+            if (characterName) {
+                // Aplicar CTP ao personagem (todas as instâncias)
+                applyCtpToCharacter(characterName, color);
+            } else {
+                // Fallback para colorir célula individual se não conseguir identificar personagem
+                console.log('No character name found, applying color to individual cell');
+                cell.style.backgroundColor = color;
+                tableData[tableType].colors[cellKey] = color;
+                
+                const inputElement = cell.querySelector('input');
+                if (inputElement) {
+                    inputElement.style.color = isColorLight(color) ? '#0f172a' : '#f8fafc';
+                }
             }
+            
+            saveProgress();
             updateAllTables();
         };
 
@@ -1227,13 +1387,16 @@ Dia,Restrição,Solador,Suporte 1,Suporte 2
 
         const calculateColorRanking = () => {
             const ranking = {};
-            const colors = { ...tableData.bax.colors, ...tableData.bal.colors };
-            for (const key in colors) {
-                if (colors[key] && colors[key].length > 0) {
-                    const colorName = colorNames[colors[key]] || 'Cor desconhecida';
+            
+            // Use o mapeamento de personagens para contar CTPs únicos
+            for (const characterName in characterCtpMapping) {
+                const color = characterCtpMapping[characterName];
+                if (color && color.length > 0) {
+                    const colorName = colorNames[color] || 'Cor desconhecida';
                     ranking[colorName] = (ranking[colorName] || 0) + 1;
                 }
             }
+            
             return Object.entries(ranking).sort((a, b) => b[1] - a[1]);
         };
         
@@ -1317,6 +1480,9 @@ Dia,Restrição,Solador,Suporte 1,Suporte 2
 
             loadCustomLists();
             loadProgress();
+            
+            // Sincroniza o mapeamento de CTP por personagem
+            syncCharacterCtpOnLoad();
             
             // Aplica o tema salvo ou o padrão
             const savedTheme = localStorage.getItem('theme') || 'dark';
